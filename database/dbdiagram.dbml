@@ -1,0 +1,132 @@
+// SIPOSYANDU - Monitoring Kesehatan Ibu & Anak serta Jadwal Posyandu
+// Tempel langsung di editor https://dbdiagram.io
+
+Project siposyandu {
+  database_type: 'PostgreSQL'
+}
+
+Table posyandu {
+  id serial [pk]
+  nama varchar(100) [not null, unique]
+  alamat text [not null]
+  ketua_kader varchar(100)
+}
+
+Table ibu {
+  id serial [pk]
+  posyandu_id int [not null]
+  nik char(16) [not null, unique]
+  nama varchar(100) [not null]
+  tanggal_lahir date [not null]
+  alamat text
+  no_hp varchar(20)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table data_kesehatan_ibu {
+  id serial [pk]
+  ibu_id int [not null, unique]
+  golongan_darah varchar(3)
+  tinggi_badan numeric(4,1)
+  riwayat_alergi text
+  hpht date [note: 'hari pertama haid terakhir']
+  taksiran_persalinan date
+}
+
+Table anak {
+  id serial [pk]
+  ibu_id int [not null]
+  nama varchar(100) [not null]
+  jenis_kelamin char(1) [not null, note: "'L' atau 'P'"]
+  tanggal_lahir date [not null]
+  berat_lahir numeric(4,2) [note: 'kg']
+  panjang_lahir numeric(4,1) [note: 'cm']
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table jadwal_posyandu {
+  id serial [pk]
+  posyandu_id int [not null]
+  tanggal date [not null]
+  jam_mulai time [not null]
+  jam_selesai time
+  lokasi varchar(150) [not null]
+  keterangan text
+}
+
+Table layanan {
+  id serial [pk]
+  nama_layanan varchar(80) [not null, unique]
+  deskripsi text
+}
+
+Table jadwal_layanan {
+  jadwal_id int [not null]
+  layanan_id int [not null]
+
+  indexes {
+    (jadwal_id, layanan_id) [pk]
+  }
+}
+
+Table pemeriksaan_ibu {
+  id serial [pk]
+  ibu_id int [not null]
+  jadwal_id int
+  tanggal_periksa date [not null]
+  usia_kehamilan_minggu smallint
+  berat_badan numeric(4,1)
+  tekanan_darah varchar(7)
+  lila numeric(3,1) [note: 'lingkar lengan atas, cm']
+  keluhan text
+}
+
+Table pemeriksaan_anak {
+  id serial [pk]
+  anak_id int [not null]
+  jadwal_id int
+  tanggal_periksa date [not null]
+  berat_badan numeric(4,1) [not null, note: 'kg']
+  tinggi_badan numeric(4,1) [not null, note: 'cm']
+  lingkar_kepala numeric(4,1)
+  status_gizi varchar(10) [not null, default: 'Baik', note: 'Baik | Kurang | Buruk | Lebih']
+  catatan text
+}
+
+Table vaksin {
+  id serial [pk]
+  nama_vaksin varchar(80) [not null, unique]
+  usia_anjuran_bulan smallint [not null]
+}
+
+Table riwayat_imunisasi {
+  anak_id int [not null]
+  vaksin_id int [not null]
+  jadwal_id int
+  tanggal_imunisasi date [not null]
+
+  indexes {
+    (anak_id, vaksin_id) [pk]
+  }
+}
+
+// One to One
+Ref: data_kesehatan_ibu.ibu_id - ibu.id [delete: cascade]
+
+// One to Many
+Ref: ibu.posyandu_id > posyandu.id
+Ref: anak.ibu_id > ibu.id [delete: cascade]
+Ref: jadwal_posyandu.posyandu_id > posyandu.id [delete: cascade]
+Ref: pemeriksaan_ibu.ibu_id > ibu.id [delete: cascade]
+Ref: pemeriksaan_ibu.jadwal_id > jadwal_posyandu.id [delete: set null]
+Ref: pemeriksaan_anak.anak_id > anak.id [delete: cascade]
+Ref: pemeriksaan_anak.jadwal_id > jadwal_posyandu.id [delete: set null]
+
+// Many to Many: jadwal_posyandu <-> layanan
+Ref: jadwal_layanan.jadwal_id > jadwal_posyandu.id [delete: cascade]
+Ref: jadwal_layanan.layanan_id > layanan.id [delete: cascade]
+
+// Many to Many: anak <-> vaksin
+Ref: riwayat_imunisasi.anak_id > anak.id [delete: cascade]
+Ref: riwayat_imunisasi.vaksin_id > vaksin.id
+Ref: riwayat_imunisasi.jadwal_id > jadwal_posyandu.id [delete: set null]
